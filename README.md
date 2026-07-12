@@ -1,4 +1,4 @@
-<img width="1448" height="1086" alt="coffee_erd" src="https://github.com/user-attachments/assets/bff0a6cf-aaf1-430c-8974-ab31c9c1269e" /># 다수 서버 환경에서도 안정적으로 동작하는 커피숍 주문 시스템
+# 다수 서버 환경에서도 안정적으로 동작하는 커피숍 주문 시스템
 
 ## 1. 프로젝트 목표
 
