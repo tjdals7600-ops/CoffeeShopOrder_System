@@ -1,4 +1,4 @@
-# 다수 서버 환경에서도 안정적으로 동작하는 커피숍 주문 시스템
+<img width="1448" height="1086" alt="coffee_erd" src="https://github.com/user-attachments/assets/bff0a6cf-aaf1-430c-8974-ab31c9c1269e" /># 다수 서버 환경에서도 안정적으로 동작하는 커피숍 주문 시스템
 
 ## 1. 프로젝트 목표
 
@@ -28,13 +28,15 @@
 
 ## ERD
 
-![coffee_erd.png](../../coffee_erd.png)
+<img width="1448" height="1086" alt="coffee_erd" src="https://github.com/user-attachments/assets/c0c66fd4-0b3a-4dc6-8207-a5f1a52a2e4a" />
+
 
 ---
 
 ## API 명세
 
-![coffee_api.png](../../coffee_api.png)
+<img width="1055" height="1491" alt="coffee_api" src="https://github.com/user-attachments/assets/2bfc10d1-feee-4b47-9cd0-4c43e4e547eb" />
+
 
 ---
 
