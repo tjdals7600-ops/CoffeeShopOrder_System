@@ -35,4 +35,8 @@ public class UserPoint extends BaseTimeEntity {
 
     @Column(nullable = false)
     private Long balance;
+
+    public void charge(Long amount) {
+        balance += amount;
+    }
 }
