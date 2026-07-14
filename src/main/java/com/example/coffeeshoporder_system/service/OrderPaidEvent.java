@@ -1,13 +1,12 @@
 package com.example.coffeeshoporder_system.service;
 
+import java.util.List;
+
 public record OrderPaidEvent(
         Long orderId,
         Long userId,
-        Long menuId,
-        String menuName,
-        Long unitPrice,
-        Integer quantity,
         Long totalPrice,
-        String requestId
+        String requestId,
+        List<OrderPaidItemEvent> items
 ) {
 }

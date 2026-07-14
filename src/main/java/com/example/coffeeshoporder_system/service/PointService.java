@@ -27,18 +27,9 @@ public class PointService {
     public PointChargeResponse charge(PointChargeRequest request) {
         validateChargeRequest(request);
 
-        var duplicatedHistory = pointHistoryRepository.findByUserIdAndRequestIdAndType(
-                request.userId(),
-                request.requestId(),
-                PointHistoryType.CHARGE
-        );
-        if (duplicatedHistory.isPresent()) {
-            PointHistory pointHistory = duplicatedHistory.get();
-            return new PointChargeResponse(
-                    pointHistory.getUserId(),
-                    pointHistory.getAmount(),
-                    pointHistory.getBalanceAfter()
-            );
+        var duplicatedHistory = findChargeHistory(request);
+        if (duplicatedHistory != null) {
+            return toChargeResponse(duplicatedHistory);
         }
 
         UserPoint userPoint = userPointRepository.findByUserIdForUpdate(request.userId())
@@ -46,6 +37,11 @@ public class PointService {
                         .userId(request.userId())
                         .balance(0L)
                         .build()));
+
+        duplicatedHistory = findChargeHistory(request);
+        if (duplicatedHistory != null) {
+            return toChargeResponse(duplicatedHistory);
+        }
 
         userPoint.charge(request.amount());
 
@@ -59,6 +55,22 @@ public class PointService {
                 .build());
 
         return new PointChargeResponse(userPoint.getUserId(), request.amount(), userPoint.getBalance());
+    }
+
+    private PointHistory findChargeHistory(PointChargeRequest request) {
+        return pointHistoryRepository.findByUserIdAndRequestIdAndType(
+                request.userId(),
+                request.requestId(),
+                PointHistoryType.CHARGE
+        ).orElse(null);
+    }
+
+    private PointChargeResponse toChargeResponse(PointHistory pointHistory) {
+        return new PointChargeResponse(
+                pointHistory.getUserId(),
+                pointHistory.getAmount(),
+                pointHistory.getBalanceAfter()
+        );
     }
 
     private void validateChargeRequest(PointChargeRequest request) {

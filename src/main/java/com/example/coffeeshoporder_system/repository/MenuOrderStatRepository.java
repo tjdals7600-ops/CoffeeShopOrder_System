@@ -25,7 +25,7 @@ public interface MenuOrderStatRepository extends JpaRepository<MenuOrderStat, Lo
             join s.menu m
             where s.statDate between :startDate and :endDate
             group by m.id, m.name, m.price
-            order by sum(s.totalQuantity) desc, sum(s.orderCount) desc
+            order by sum(s.orderCount) desc, sum(s.totalQuantity) desc
             """)
     List<PopularMenuStatProjection> findPopularMenus(
             @Param("startDate") LocalDate startDate,
