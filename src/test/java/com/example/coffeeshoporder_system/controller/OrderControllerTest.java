@@ -1,6 +1,7 @@
 package com.example.coffeeshoporder_system.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -8,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.example.coffeeshoporder_system.domain.entity.Menu;
 import com.example.coffeeshoporder_system.domain.entity.UserPoint;
 import com.example.coffeeshoporder_system.domain.type.MenuStatus;
+import com.example.coffeeshoporder_system.repository.MenuOrderStatRepository;
 import com.example.coffeeshoporder_system.repository.MenuRepository;
 import com.example.coffeeshoporder_system.repository.OrderItemRepository;
 import com.example.coffeeshoporder_system.repository.OrderOutboxRepository;
@@ -36,6 +38,9 @@ class OrderControllerTest {
     private MenuRepository menuRepository;
 
     @Autowired
+    private MenuOrderStatRepository menuOrderStatRepository;
+
+    @Autowired
     private UserPointRepository userPointRepository;
 
     @Autowired
@@ -60,6 +65,7 @@ class OrderControllerTest {
         orderItemRepository.deleteAll();
         orderRepository.deleteAll();
         userPointRepository.deleteAll();
+        menuOrderStatRepository.deleteAll();
         menuRepository.deleteAll();
         dataCollectionPlatformClient.clear();
     }
@@ -96,6 +102,59 @@ class OrderControllerTest {
         assertThat(orderOutboxRepository.count()).isEqualTo(1);
         assertThat(dataCollectionPlatformClient.getSentEvents()).hasSize(1);
         assertThat(dataCollectionPlatformClient.getSentEvents().getFirst().totalPrice()).isEqualTo(4000L);
+    }
+
+    @Test
+    void orderAndPayMultipleItemsWithPoint() throws Exception {
+        Menu americano = saveMenu("아메리카노", 4000L, MenuStatus.SELLING);
+        Menu latte = saveMenu("카페 \"라떼\"", 4500L, MenuStatus.SELLING);
+        saveUserPoint(1L, 20000L);
+
+        mockMvc.perform(post("/api/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userId": 1,
+                                  "requestId": "20260714-user1-order-multiple",
+                                  "items": [
+                                    {
+                                      "menuId": %d,
+                                      "quantity": 2
+                                    },
+                                    {
+                                      "menuId": %d,
+                                      "quantity": 1
+                                    }
+                                  ]
+                                }
+                                """.formatted(americano.getId(), latte.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAID"))
+                .andExpect(jsonPath("$.totalPrice").value(12500))
+                .andExpect(jsonPath("$.balance").value(7500))
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].quantity").value(2))
+                .andExpect(jsonPath("$.items[0].linePrice").value(8000))
+                .andExpect(jsonPath("$.items[1].menuName").value("카페 \"라떼\""))
+                .andExpect(jsonPath("$.items[1].quantity").value(1))
+                .andExpect(jsonPath("$.items[1].linePrice").value(4500));
+
+        assertThat(userPointRepository.findByUserId(1L).orElseThrow().getBalance()).isEqualTo(7500L);
+        assertThat(orderRepository.count()).isEqualTo(1);
+        assertThat(orderItemRepository.count()).isEqualTo(2);
+        assertThat(orderOutboxRepository.findAll().getFirst().getPayload()).contains("\\\"라떼\\\"");
+        assertThat(dataCollectionPlatformClient.getSentEvents()).hasSize(1);
+        assertThat(dataCollectionPlatformClient.getSentEvents().getFirst().items()).hasSize(2);
+
+        mockMvc.perform(get("/api/menus/popular"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.menus.length()").value(2))
+                .andExpect(jsonPath("$.menus[0].menuId").value(americano.getId()))
+                .andExpect(jsonPath("$.menus[0].orderCount").value(1))
+                .andExpect(jsonPath("$.menus[0].totalQuantity").value(2))
+                .andExpect(jsonPath("$.menus[1].menuId").value(latte.getId()))
+                .andExpect(jsonPath("$.menus[1].orderCount").value(1))
+                .andExpect(jsonPath("$.menus[1].totalQuantity").value(1));
     }
 
     @Test
@@ -171,6 +230,32 @@ class OrderControllerTest {
                                 """.formatted(menu.getId())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("MENU_NOT_SELLING"));
+    }
+
+    @Test
+    void orderFailsWhenQuantityIsNotPositive() throws Exception {
+        Menu menu = saveMenu("아메리카노", 4000L, MenuStatus.SELLING);
+        saveUserPoint(1L, 10000L);
+
+        mockMvc.perform(post("/api/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userId": 1,
+                                  "requestId": "20260714-user1-order-invalid-quantity",
+                                  "items": [
+                                    {
+                                      "menuId": %d,
+                                      "quantity": 0
+                                    }
+                                  ]
+                                }
+                                """.formatted(menu.getId())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ORDER_QUANTITY"));
+
+        assertThat(orderRepository.count()).isZero();
+        assertThat(orderOutboxRepository.count()).isZero();
     }
 
     private Menu saveMenu(String name, Long price, MenuStatus status) {

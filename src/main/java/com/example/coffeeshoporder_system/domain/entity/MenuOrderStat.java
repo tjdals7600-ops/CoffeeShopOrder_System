@@ -54,4 +54,10 @@ public class MenuOrderStat {
 
     @Column(name = "total_sales_point", nullable = false)
     private Long totalSalesPoint;
+
+    public void addOrder(Integer quantity, Long salesPoint) {
+        orderCount += 1;
+        totalQuantity += quantity;
+        totalSalesPoint += salesPoint;
+    }
 }
