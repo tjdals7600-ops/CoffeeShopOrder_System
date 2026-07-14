@@ -39,4 +39,12 @@ public class UserPoint extends BaseTimeEntity {
     public void charge(Long amount) {
         balance += amount;
     }
+
+    public boolean hasEnoughBalance(Long amount) {
+        return balance >= amount;
+    }
+
+    public void use(Long amount) {
+        balance -= amount;
+    }
 }
