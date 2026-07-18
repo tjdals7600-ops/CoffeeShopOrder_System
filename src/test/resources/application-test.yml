@@ -1,4 +1,9 @@
 spring:
+  # 테스트에서는 외부 Redis 없이 메모리 기반 simple cache를 사용합니다.
+  cache:
+    type: simple
+
+  # 테스트 DB는 H2를 MySQL 모드로 실행합니다.
   datasource:
     url: jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
@@ -7,10 +12,12 @@ spring:
 
   jpa:
     hibernate:
+      # 테스트마다 스키마를 새로 만들고 종료 시 제거합니다.
       ddl-auto: create-drop
 
     properties:
       hibernate:
+        # SQL 로그를 읽기 쉽게 출력합니다.
         format_sql: true
 
     show-sql: true

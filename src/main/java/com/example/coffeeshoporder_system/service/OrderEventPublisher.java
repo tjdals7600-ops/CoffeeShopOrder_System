@@ -13,6 +13,7 @@ public class OrderEventPublisher {
 
     private final DataCollectionPlatformClient dataCollectionPlatformClient;
 
+    // 주문 트랜잭션이 성공적으로 커밋된 뒤 데이터 수집 플랫폼으로 이벤트를 전송합니다.
     public void publishAfterCommit(OrderPaidEvent event) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             sendSafely(event);
@@ -27,6 +28,7 @@ public class OrderEventPublisher {
         });
     }
 
+    // 외부 전송 실패가 주문 성공 응답을 깨지 않도록 로그만 남깁니다.
     private void sendSafely(OrderPaidEvent event) {
         try {
             dataCollectionPlatformClient.send(event);

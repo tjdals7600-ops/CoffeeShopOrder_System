@@ -11,8 +11,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface MenuOrderStatRepository extends JpaRepository<MenuOrderStat, Long> {
 
+    // 주문 성공 시 오늘 날짜의 메뉴별 집계 row를 찾아 누적합니다.
     Optional<MenuOrderStat> findByMenu_IdAndStatDate(Long menuId, LocalDate statDate);
 
+    // 인기 메뉴 조회는 집계 테이블을 기간 합산해 주문 횟수 기준으로 정렬합니다.
     @Query("""
             select
                 m.id as menuId,

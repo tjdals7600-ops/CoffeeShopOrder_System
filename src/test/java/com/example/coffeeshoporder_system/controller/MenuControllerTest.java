@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.cache.CacheManager;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -26,8 +27,13 @@ class MenuControllerTest {
     @Autowired
     private MenuRepository menuRepository;
 
+    @Autowired
+    private CacheManager cacheManager;
+
+    // 각 테스트가 독립적으로 동작하도록 메뉴 데이터와 캐시를 초기화합니다.
     @BeforeEach
     void setUp() {
+        clearCaches();
         menuRepository.deleteAll();
         menuRepository.save(Menu.builder()
                 .name("아메리카노")
@@ -49,6 +55,7 @@ class MenuControllerTest {
                 .build());
     }
 
+    // 판매 중인 메뉴만 menuId, name, price 형태로 반환하는지 검증합니다.
     @Test
     void getMenusReturnsSellingMenuSummaries() throws Exception {
         mockMvc.perform(get("/api/menus"))
@@ -60,5 +67,16 @@ class MenuControllerTest {
                 .andExpect(jsonPath("$.menus[0].description").doesNotExist())
                 .andExpect(jsonPath("$.menus[1].name").value("카페라떼"))
                 .andExpect(jsonPath("$.menus[1].price").value(4500));
+    }
+
+    // 테스트용 simple cache에 남은 값을 모두 비웁니다.
+    private void clearCaches() {
+        cacheManager.getCacheNames()
+                .forEach(name -> {
+                    var cache = cacheManager.getCache(name);
+                    if (cache != null) {
+                        cache.clear();
+                    }
+                });
     }
 }

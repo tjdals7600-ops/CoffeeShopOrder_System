@@ -8,6 +8,7 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest
 class CoffeeShopOrderSystemApplicationTests {
 
+	// Spring context가 test profile로 정상 기동되는지 확인합니다.
 	@Test
 	void contextLoads() {
 	}

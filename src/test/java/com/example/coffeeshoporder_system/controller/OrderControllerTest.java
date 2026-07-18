@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.cache.CacheManager;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -58,6 +59,10 @@ class OrderControllerTest {
     @Autowired
     private InMemoryDataCollectionPlatformClient dataCollectionPlatformClient;
 
+    @Autowired
+    private CacheManager cacheManager;
+
+    // 주문 관련 테이블과 테스트용 이벤트/캐시 상태를 모두 초기화합니다.
     @BeforeEach
     void setUp() {
         orderOutboxRepository.deleteAll();
@@ -68,8 +73,10 @@ class OrderControllerTest {
         menuOrderStatRepository.deleteAll();
         menuRepository.deleteAll();
         dataCollectionPlatformClient.clear();
+        clearCaches();
     }
 
+    // 단일 메뉴 주문 시 포인트가 차감되고 주문/이력/outbox/이벤트가 생성되는지 검증합니다.
     @Test
     void orderAndPayWithPoint() throws Exception {
         Menu menu = saveMenu("아메리카노", 4000L, MenuStatus.SELLING);
@@ -104,6 +111,7 @@ class OrderControllerTest {
         assertThat(dataCollectionPlatformClient.getSentEvents().getFirst().totalPrice()).isEqualTo(4000L);
     }
 
+    // 다중 메뉴 주문의 총액, 항목별 snapshot, 인기 메뉴 집계가 정확한지 검증합니다.
     @Test
     void orderAndPayMultipleItemsWithPoint() throws Exception {
         Menu americano = saveMenu("아메리카노", 4000L, MenuStatus.SELLING);
@@ -157,6 +165,7 @@ class OrderControllerTest {
                 .andExpect(jsonPath("$.menus[1].totalQuantity").value(1));
     }
 
+    // 같은 requestId 주문은 중복 결제하지 않고 기존 결과를 반환하는지 검증합니다.
     @Test
     void sameRequestIdDoesNotPayTwice() throws Exception {
         Menu menu = saveMenu("카페라떼", 4500L, MenuStatus.SELLING);
@@ -191,6 +200,7 @@ class OrderControllerTest {
         assertThat(dataCollectionPlatformClient.getSentEvents()).hasSize(1);
     }
 
+    // 잔액이 부족하면 주문과 outbox가 생성되지 않는지 검증합니다.
     @Test
     void orderFailsWhenPointIsInsufficient() throws Exception {
         Menu menu = saveMenu("바닐라라떼", 5500L, MenuStatus.SELLING);
@@ -214,6 +224,7 @@ class OrderControllerTest {
         assertThat(dataCollectionPlatformClient.getSentEvents()).isEmpty();
     }
 
+    // 판매 중지 메뉴 주문이 거절되는지 검증합니다.
     @Test
     void orderFailsWhenMenuIsNotSelling() throws Exception {
         Menu menu = saveMenu("판매 중지 메뉴", 5000L, MenuStatus.STOPPED);
@@ -232,6 +243,7 @@ class OrderControllerTest {
                 .andExpect(jsonPath("$.code").value("MENU_NOT_SELLING"));
     }
 
+    // 0 이하 수량 주문이 거절되고 부수 데이터가 남지 않는지 검증합니다.
     @Test
     void orderFailsWhenQuantityIsNotPositive() throws Exception {
         Menu menu = saveMenu("아메리카노", 4000L, MenuStatus.SELLING);
@@ -258,6 +270,7 @@ class OrderControllerTest {
         assertThat(orderOutboxRepository.count()).isZero();
     }
 
+    // 주문 테스트에 필요한 메뉴 fixture를 저장합니다.
     private Menu saveMenu(String name, Long price, MenuStatus status) {
         return menuRepository.save(Menu.builder()
                 .name(name)
@@ -267,10 +280,22 @@ class OrderControllerTest {
                 .build());
     }
 
+    // 주문 전 결제 가능한 사용자 포인트 fixture를 저장합니다.
     private void saveUserPoint(Long userId, Long balance) {
         userPointRepository.save(UserPoint.builder()
                 .userId(userId)
                 .balance(balance)
                 .build());
+    }
+
+    // 인기 메뉴 캐시가 테스트 간 영향을 주지 않도록 비웁니다.
+    private void clearCaches() {
+        cacheManager.getCacheNames()
+                .forEach(name -> {
+                    var cache = cacheManager.getCache(name);
+                    if (cache != null) {
+                        cache.clear();
+                    }
+                });
     }
 }

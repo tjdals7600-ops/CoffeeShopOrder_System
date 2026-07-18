@@ -16,6 +16,7 @@ public class OrderController {
 
     private final OrderService orderService;
 
+    // 주문 생성과 포인트 결제를 하나의 요청으로 처리합니다.
     @PostMapping
     public OrderResponse order(@RequestBody OrderRequest request) {
         return orderService.order(request);
