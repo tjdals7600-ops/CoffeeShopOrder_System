@@ -19,13 +19,18 @@ repositories {
 }
 
 dependencies {
+    // 메뉴/인기 메뉴 조회 결과를 캐싱하기 위한 Spring Cache 추상화입니다.
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    // 운영 환경에서 Redis를 캐시 저장소로 사용하기 위한 의존성입니다.
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'
     annotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    // test profile에서 MySQL 없이 repository/API 테스트를 실행하기 위한 H2입니다.
     runtimeOnly 'com.h2database:h2'
     testCompileOnly 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -34,5 +39,6 @@ dependencies {
 }
 
 tasks.named('test') {
+    // JUnit 5 기반 테스트를 실행합니다.
     useJUnitPlatform()
 }

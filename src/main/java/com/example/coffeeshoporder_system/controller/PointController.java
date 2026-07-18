@@ -16,6 +16,7 @@ public class PointController {
 
     private final PointService pointService;
 
+    // 사용자의 포인트를 충전합니다. 1원은 1P로 저장됩니다.
     @PostMapping("/charge")
     public PointChargeResponse charge(@RequestBody PointChargeRequest request) {
         return pointService.charge(request);

@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.cache.CacheManager;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -52,6 +53,10 @@ class PopularMenuControllerTest {
     @Autowired
     private UserPointRepository userPointRepository;
 
+    @Autowired
+    private CacheManager cacheManager;
+
+    // 인기 메뉴 집계 테스트가 독립적으로 실행되도록 관련 테이블과 캐시를 초기화합니다.
     @BeforeEach
     void setUp() {
         orderOutboxRepository.deleteAll();
@@ -61,8 +66,10 @@ class PopularMenuControllerTest {
         userPointRepository.deleteAll();
         menuOrderStatRepository.deleteAll();
         menuRepository.deleteAll();
+        clearCaches();
     }
 
+    // 지정 기간과 limit으로 인기 메뉴 목록이 주문 횟수 순서대로 반환되는지 검증합니다.
     @Test
     void getPopularMenus() throws Exception {
         Menu americano = saveMenu("아메리카노", 4000L);
@@ -84,6 +91,7 @@ class PopularMenuControllerTest {
                 .andExpect(jsonPath("$.menus[1].menuId").value(latte.getId()));
     }
 
+    // 기본 인기 메뉴 조회가 최근 7일 기준 TOP 3와 정확한 주문 횟수를 반환하는지 검증합니다.
     @Test
     void getPopularMenusReturnsTop3ByOrderCountForRecent7Days() throws Exception {
         Menu first = saveMenu("아메리카노", 4000L);
@@ -111,6 +119,27 @@ class PopularMenuControllerTest {
                 .andExpect(jsonPath("$.menus[2].orderCount").value(9));
     }
 
+    // 반복 조회 시 집계 테이블이 바뀌어도 캐시된 결과가 반환되는지 검증합니다.
+    @Test
+    void getPopularMenusUsesCacheForRepeatedReads() throws Exception {
+        Menu americano = saveMenu("cached-americano", 4000L);
+        Menu latte = saveMenu("cached-latte", 4500L);
+        saveStat(americano, 10L, 10L, 40000L);
+
+        mockMvc.perform(get("/api/menus/popular"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.menus.length()").value(1))
+                .andExpect(jsonPath("$.menus[0].menuId").value(americano.getId()));
+
+        saveStat(latte, 99L, 99L, 445500L);
+
+        mockMvc.perform(get("/api/menus/popular"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.menus.length()").value(1))
+                .andExpect(jsonPath("$.menus[0].menuId").value(americano.getId()));
+    }
+
+    // 지원하지 않는 기간 값은 INVALID_REQUEST로 거절되는지 검증합니다.
     @Test
     void getPopularMenusFailsWhenPeriodIsInvalid() throws Exception {
         mockMvc.perform(get("/api/menus/popular")
@@ -120,6 +149,7 @@ class PopularMenuControllerTest {
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
     }
 
+    // 인기 메뉴 테스트에 필요한 판매 중 메뉴 fixture를 저장합니다.
     private Menu saveMenu(String name, Long price) {
         return menuRepository.save(Menu.builder()
                 .name(name)
@@ -129,10 +159,12 @@ class PopularMenuControllerTest {
                 .build());
     }
 
+    // 오늘 날짜 기준 집계 fixture를 저장합니다.
     private void saveStat(Menu menu, Long orderCount, Long totalQuantity, Long totalSalesPoint) {
         saveStat(menu, LocalDate.now(), orderCount, totalQuantity, totalSalesPoint);
     }
 
+    // 원하는 날짜의 메뉴별 집계 fixture를 저장합니다.
     private void saveStat(Menu menu, LocalDate statDate, Long orderCount, Long totalQuantity, Long totalSalesPoint) {
         menuOrderStatRepository.save(MenuOrderStat.builder()
                 .menu(menu)
@@ -141,5 +173,16 @@ class PopularMenuControllerTest {
                 .totalQuantity(totalQuantity)
                 .totalSalesPoint(totalSalesPoint)
                 .build());
+    }
+
+    // 테스트용 simple cache에 남은 인기 메뉴 결과를 비웁니다.
+    private void clearCaches() {
+        cacheManager.getCacheNames()
+                .forEach(name -> {
+                    var cache = cacheManager.getCache(name);
+                    if (cache != null) {
+                        cache.clear();
+                    }
+                });
     }
 }
